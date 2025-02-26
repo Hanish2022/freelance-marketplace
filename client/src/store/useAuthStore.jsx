@@ -76,12 +76,16 @@ export const useAuthStore = create((set) => ({
         data,
         { withCredentials: true }
       );
+      const { token, user } = res.data;
 
+      if (token) {
+        localStorage.setItem("token", token); // ✅ Store token for future requests
+      }
       // Update state on successful login
       set({ authUser: res.data.user, isLoggedIn: true });
 
       toast.success("Login successful!");
-      navigate("/dashboard"); // Redirect user after login
+      navigate("/"); // Redirect user after login
 
       return true; // ✅ Indicate success
     } catch (error) {
@@ -95,7 +99,10 @@ export const useAuthStore = create((set) => ({
 
   // Logout action
   logout: () => {
-    set({ authUser: null, isLoggedIn: false }); // Reset state on logout
+    localStorage.removeItem("token"); // ✅ Remove token
+    set({ authUser: null, isLoggedIn: false });
     toast.success("Logged out successfully!");
   },
 }));
+
+
