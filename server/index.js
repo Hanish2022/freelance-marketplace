@@ -16,14 +16,21 @@ const app = express();
 
 app.use(cookieParser());
 app.use(express.json());
+// app.use(
+//   cors({
+//     origin: "http://localhost:5174",
+//     credentials: true,
+//   })
+// );
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: true, // Reflects the request's origin
     credentials: true,
   })
 );
 
-// Enable file upload middleware (required for Cloudinary uploads)
+
+// Enable file upload middleware and we can use this instead of multer also (required for Cloudinary uploads)
 app.use(
   fileUpload({
     useTempFiles: true,

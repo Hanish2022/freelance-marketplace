@@ -1,30 +1,35 @@
-import React, { useState } from "react";
-import { useAuthStore } from "../store/useAuthStore";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react"; // React aur useState hook ko import kar rahe hain state management ke liye
+import { useAuthStore } from "../store/useAuthStore"; // Auth store se login function use karne ke liye import kar rahe hain
+import { useNavigate } from "react-router-dom"; // Navigation handle karne ke liye useNavigate hook import kar rahe hain
 
 const Login = () => {
-  const { login } = useAuthStore();
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({ email: "", password: "" });
+  const { login } = useAuthStore(); // useAuthStore() hook se login function ko access kar rahe hain
+  const navigate = useNavigate(); // navigate function ko initialize kar rahe hain navigation ke liye
+  const [formData, setFormData] = useState({ email: "", password: "" }); // formData state bana rahe hain user ke email aur password ke liye
 
   const handleChange = (e) => {
+    // Jab bhi user input field me value type karega, state update hogi
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const success = await login(formData, navigate);
+    e.preventDefault(); // Form submit hone par page reload hone se rok raha hai
+    const success = await login(formData, navigate); // login function call kar rahe hain backend authentication ke liye
 
     if (success) {
-      navigate("/"); // Redirect to dashboard on successful login
+      // Agar login successful ho jata hai to home page ya dashboard par redirect karenge
+      navigate("/");
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col justify-center items-center text-gray-100 p-6">
+      {/* Ye container pura screen cover karega aur center aligned hoga */}
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
+        {/* Login form ka card-like UI */}
         <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          {/* Form ke andar email aur password ke input fields hain */}
           <input
             type="email"
             name="email"
@@ -54,7 +59,7 @@ const Login = () => {
           Don't have an account?{" "}
           <span
             className="text-green-500 hover:underline cursor-pointer"
-            onClick={() => navigate("/signup")}
+            onClick={() => navigate("/signup")} // Agar user ke paas account nahi hai to signup page par navigate karega
           >
             Sign Up
           </span>
@@ -64,4 +69,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Login; // Component ko export kar rahe hain taaki baaki application me use ho sake

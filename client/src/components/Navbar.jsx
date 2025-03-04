@@ -17,8 +17,20 @@ const Navbar = () => {
       {/* Menu Links */}
       <div className="flex gap-6">
         {isLoggedIn ? (
-          // Show Profile and Logout if logged in
+          // Show Skill Exchange, Service Requests, Profile, and Logout if logged in
           <>
+            <Link
+              to="/skill-exchange"
+              className="text-gray-300 hover:text-green-400 transition"
+            >
+              Skill Exchange
+            </Link>
+            <Link
+              to="/service-request"
+              className="text-gray-300 hover:text-green-400 transition"
+            >
+              Service Requests
+            </Link>
             <Link
               to="/profile"
               className="text-gray-300 hover:text-green-400 transition"
@@ -33,20 +45,13 @@ const Navbar = () => {
             </button>
           </>
         ) : (
-          // Show Home, Login, and Sign Up if not logged in
+          // Show Login and Sign Up if not logged in
           <>
-            <Link
-              to="/"
-              className="text-gray-300 hover:text-green-400 transition"
-            >
-              Home
-            </Link>
             <Link
               to="/login"
               className="text-gray-300 hover:text-green-400 transition"
             >
-                login 
-                
+              Login
             </Link>
             <Link
               to="/signup"
