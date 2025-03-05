@@ -8,6 +8,9 @@ import Signup from "./components/Signup";
 import Profile from "./components/Profile";
 import SkillExchangeMatching from "./components/SkillExchangeMatching"; // Import the new component
 import ServiceRequest from "./components/ServiceRequest";
+import SkillCreditSystem from "./components/SkillCreditSystem";
+import MilestoneTracking from "./components/MilestoneTracking";
+import SecureAgreement from "./components/SecureAgreement";
 
 function App() {
   return (
@@ -22,7 +25,10 @@ function App() {
           path="/skill-exchange"
           element={<SkillExchangeMatching />}
         />{" "}
-        <Route path="/service-request" element={<ServiceRequest/>}/>
+        <Route path="/service-request" element={<ServiceRequest />} />
+        <Route path="/" element={<SkillCreditSystem />} />
+        <Route path="/" element={<MilestoneTracking />} />
+        <Route path="/" element={<SecureAgreement />} />
       </Routes>
     </Router>
   );

@@ -1,7 +1,13 @@
 import React from "react";
 import Navbar from "./Navbar";
+import { useAuthStore } from "../store/useAuthStore"; // Import the auth store
+import SkillCreditSystem from "./SkillCreditSystem"; // Import the SkillCreditSystem component
+import MilestoneTracking from "./MilestoneTracking"; // Import the MilestoneTracking component
+import SecureAgreement from "./SecureAgreement"; // Import the SecureAgreement component
 
 const Home = () => {
+  const { isLoggedIn } = useAuthStore(); // Check if the user is logged in
+
   return (
     <div className="bg-gray-900 min-h-screen text-gray-100">
       <Navbar />
@@ -28,6 +34,15 @@ const Home = () => {
           Popular: Graphic Design, Web Development, Content Writing, SEO
         </div>
       </header>
+
+      {/* Skill Credit System (Visible only to logged-in users) */}
+      {isLoggedIn && <SkillCreditSystem />}
+
+      {/* Milestone-Based Task Tracking (Visible only to logged-in users) */}
+      {isLoggedIn && <MilestoneTracking />}
+
+      {/* Secure Agreement System (Visible only to logged-in users) */}
+      {isLoggedIn && <SecureAgreement />}
 
       {/* Trusted By Section */}
       <div className="max-w-6xl mx-auto py-12 text-center">
