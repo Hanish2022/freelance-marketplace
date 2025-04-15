@@ -1,9 +1,10 @@
 import React, { useState } from "react"; // React aur useState ko import kar rahe hain
 import { useAuthStore } from "../store/useAuthStore"; // Zustand store se authentication functions import kar rahe hain
 import { useNavigate } from "react-router-dom"; // React Router ka navigate function import kar rahe hain
+import { toast } from "react-toastify";
 
 const Signup = () => {
-  const { signup, verifyOTP } = useAuthStore(); // Zustand store se signup aur OTP verification functions le rahe hain
+  const { signup, verifyOTP, resendOTP, isVerifyingOTP, emailForOTP } = useAuthStore(); // Zustand store se signup, OTP verification, and resend OTP functions le rahe hain
   const navigate = useNavigate(); // navigate hook ko initialize kar rahe hain taaki page navigate kar sakein
 
   // Form ke liye state maintain karne ke liye useState hook ka use
@@ -11,146 +12,203 @@ const Signup = () => {
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     skills: "",
-    portfolio: null, // Portfolio file store karne ke liye
+    portfolio: null,
   });
 
-  const [otpSent, setOtpSent] = useState(false); // OTP screen dikhana ya signup form control karne ke liye state
   const [otp, setOtp] = useState(""); // OTP input store karne ke liye state
-  const [userEmail, setUserEmail] = useState(""); // User ka email OTP message dikhane ke liye
+  const [loading, setLoading] = useState(false); // Loading state maintain karne ke liye
 
   // Input fields handle karne ke liye function
   const handleChange = (e) => {
     if (e.target.name === "portfolio") {
-      setFormData({ ...formData, portfolio: e.target.files[0] }); // Agar portfolio file ho toh usse alag se handle karein
+      setFormData({ ...formData, portfolio: e.target.files[0] });
     } else {
-      setFormData({ ...formData, [e.target.name]: e.target.value }); // Baaki input fields ko update karein
+      setFormData({ ...formData, [e.target.name]: e.target.value });
     }
   };
 
   // Signup form submit hone par yeh function chalega
   const handleSubmit = async (e) => {
     e.preventDefault(); // Default form submit behavior ko rokna
+    setLoading(true);
 
-    // FormData object banakar data append kar rahe hain
-    const data = new FormData();
-    data.append("name", formData.name);
-    data.append("email", formData.email);
-    data.append("password", formData.password);
-    data.append("skills", formData.skills);
-    if (formData.portfolio) {
-      data.append("portfolio", formData.portfolio); // Portfolio file bhi bhej rahe hain agar di gayi ho
-    }
+    try {
+      // Validate passwords match
+      if (formData.password !== formData.confirmPassword) {
+        toast.error("Passwords do not match");
+        setLoading(false);
+        return;
+      }
 
-    const signupSuccess = await signup(data); // Signup function call kar rahe hain
+      // Create FormData object
+      const data = new FormData();
+      data.append("name", formData.name);
+      data.append("email", formData.email);
+      data.append("password", formData.password);
+      data.append("skills", formData.skills);
+      if (formData.portfolio) {
+        data.append("portfolio", formData.portfolio);
+      }
 
-    if (signupSuccess) {
-      // Agar signup successful ho gaya toh OTP screen dikhana shuru karenge
-      setUserEmail(formData.email);
-      setOtpSent(true);
+      const success = await signup(data);
+      if (success) {
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast.error("Error during signup");
+      setLoading(false);
     }
   };
 
   // OTP verify karne ka function
-  const handleOtpSubmit = async (e) => {
+  const handleOTPSubmit = async (e) => {
     e.preventDefault(); // Default form submit behavior ko rokna
-    const success = await verifyOTP(otp); // verifyOTP function call kar rahe hain
+    setLoading(true);
 
-    if (success) {
-      navigate("/login"); // Agar OTP sahi ho toh user ko login page par bhej rahe hain
+    try {
+      const success = await verifyOTP(otp);
+      if (success) {
+        navigate("/login"); // Agar OTP sahi ho toh user ko login page par bhej rahe hain
+      }
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      toast.error("Error verifying OTP");
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-900 flex flex-col justify-center items-center text-gray-100 p-6">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-center">
-          {otpSent ? "Verify OTP" : "Sign Up"}{" "}
-          {/* Agar OTP bheja gaya hai toh "Verify OTP" dikhaye, nahi toh "Sign Up" */}
-        </h2>
+  const handleResendOTP = async () => {
+    if (!emailForOTP) {
+      toast.error("No email found for OTP resend");
+      return;
+    }
 
-        {!otpSent ? ( // Agar OTP nahi bheja gaya toh signup form dikhaye
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-            <input
-              type="text"
-              name="name"
-              placeholder="Full Name"
-              required
-              value={formData.name}
-              onChange={handleChange} // Name change hone par state update karega
-              className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <input
-              type="email"
-              name="email"
-              placeholder="Email"
-              required
-              value={formData.email}
-              onChange={handleChange} // Email input handle karega
-              className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              required
-              value={formData.password}
-              onChange={handleChange} // Password input handle karega
-              className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <input
-              type="text"
-              name="skills"
-              placeholder="Skills (comma-separated)"
-              required
-              value={formData.skills}
-              onChange={handleChange} // Skills input handle karega
-              className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <input
-              type="file"
-              name="portfolio"
-              accept=".pdf,.doc,.docx,.jpg,.png" // Sirf allowed file formats accept karega
-              onChange={handleChange} // Portfolio file change hone par handle karega
-              className="p-3 bg-gray-700 text-gray-100 rounded-lg focus:outline-none"
-            />
-            <button
-              type="submit"
-              className="mt-4 bg-green-500 text-gray-900 font-semibold py-3 rounded-lg hover:bg-green-400 transition"
-            >
-              Sign Up {/* Signup button */}
-            </button>
-          </form>
-        ) : (
-          // OTP form agar signup ho gaya ho
-          <form className="flex flex-col gap-4" onSubmit={handleOtpSubmit}>
-            <p className="text-center text-gray-300">
-              We have sent an OTP to{" "}
-              <span className="text-green-400">{userEmail}</span>. Please enter
-              it below to verify.
-            </p>
+    setLoading(true);
+    try {
+      await resendOTP(emailForOTP);
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+      toast.error("Error resending OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (isVerifyingOTP) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col justify-center items-center text-gray-100 p-6">
+        <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
+          <h2 className="text-2xl font-bold mb-6 text-center">Verify your email</h2>
+          <p className="text-center text-gray-300 mb-6">
+            Please enter the OTP sent to <span className="text-green-400">{emailForOTP}</span>
+          </p>
+          <form className="flex flex-col gap-4" onSubmit={handleOTPSubmit}>
             <input
               type="text"
               placeholder="Enter OTP"
               required
               value={otp}
-              onChange={(e) => setOtp(e.target.value)} // OTP input handle karega
+              onChange={(e) => setOtp(e.target.value)}
               className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
             />
             <button
               type="submit"
-              className="mt-4 bg-green-500 text-gray-900 font-semibold py-3 rounded-lg hover:bg-green-400 transition"
+              disabled={loading}
+              className="mt-4 bg-green-500 text-gray-900 font-semibold py-3 rounded-lg hover:bg-green-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Verify OTP {/* OTP verify button */}
+              {loading ? "Verifying..." : "Verify OTP"}
+            </button>
+            <button
+              type="button"
+              onClick={handleResendOTP}
+              disabled={loading}
+              className="text-green-500 hover:text-green-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Resend OTP
             </button>
           </form>
-        )}
+        </div>
+      </div>
+    );
+  }
 
+  return (
+    <div className="min-h-screen bg-gray-900 flex flex-col justify-center items-center text-gray-100 p-6">
+      <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h2 className="text-2xl font-bold mb-6 text-center">Create your account</h2>
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          <input
+            type="text"
+            name="name"
+            placeholder="Full Name"
+            required
+            value={formData.name}
+            onChange={handleChange}
+            className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            required
+            value={formData.email}
+            onChange={handleChange}
+            className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            required
+            value={formData.password}
+            onChange={handleChange}
+            className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          <input
+            type="password"
+            name="confirmPassword"
+            placeholder="Confirm Password"
+            required
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          <input
+            type="text"
+            name="skills"
+            placeholder="Skills (comma-separated)"
+            required
+            value={formData.skills}
+            onChange={handleChange}
+            className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          <div className="flex flex-col gap-2">
+            <label className="text-gray-300 text-sm">Portfolio (PDF, DOC, DOCX, JPG, PNG)</label>
+            <input
+              type="file"
+              name="portfolio"
+              accept=".pdf,.doc,.docx,.jpg,.png"
+              onChange={handleChange}
+              className="p-3 bg-gray-700 text-gray-100 rounded-lg focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-500 file:text-gray-900 hover:file:bg-green-400"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-4 bg-green-500 text-gray-900 font-semibold py-3 rounded-lg hover:bg-green-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Signing up..." : "Sign up"}
+          </button>
+        </form>
         <p className="mt-6 text-center text-gray-400">
           Already have an account?{" "}
           <span
             className="text-green-500 hover:underline cursor-pointer"
-            onClick={() => navigate("/login")} // Login page par le jaane ke liye
+            onClick={() => navigate("/login")}
           >
             Login
           </span>

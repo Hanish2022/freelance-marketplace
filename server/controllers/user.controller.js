@@ -3,8 +3,30 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
-import { User } from "../models/user.model.js";
+import User from "../models/User.js";
 import cloudinary from "../utils/cloudinary.js";
+
+// Helper function to send OTP email
+const sendOTPEmail = async (email, otpCode) => {
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Verify your Email",
+    text: `Your OTP is: ${otpCode}`,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
 
 export const registerUser = async (req, res) => {
   try {
@@ -30,38 +52,26 @@ export const registerUser = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const otp = crypto.randomInt(100000, 999999).toString();
-
+    
+    // Create new user with pending status
     const newUser = new User({
       name,
       email,
       password: hashedPassword,
       skills: Array.isArray(skills) ? skills : [skills],
       portfolio: portfolioUrls,
-      otp,
+      registrationStatus: 'pending',
+      isVerified: false
     });
-
+    
+    // Generate OTP
+    const otpCode = newUser.generateOTP();
+    
+    // Save user
     await newUser.save();
 
     // Send OTP email
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Verify your Email",
-      text: `Your OTP is: ${otp}`,
-    };
-
-    await transporter.sendMail(mailOptions);
+    await sendOTPEmail(email, otpCode);
 
     res
       .status(201)
@@ -81,30 +91,66 @@ export const registerUser = async (req, res) => {
   }
 };
 
-
 export const verifyOTP = async (req, res) => {
   const { email, otp } = req.body;
   try {
     const user = await User.findOne({ email });
-    if (user && user.otp === otp) {
+    
+    // Check if user exists and OTP is valid
+    if (user && user.otp && user.otp.code === otp) {
+      // Check if OTP has expired
+      if (user.otp.expiresAt && new Date() > user.otp.expiresAt) {
+        return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+      }
+      
+      // Update user status
       user.isVerified = true;
+      user.registrationStatus = 'verified';
       user.otp = undefined; // Clear OTP after verification
       await user.save();
+      
       return res.status(200).json({ message: "Email verified successfully." });
     }
     res.status(400).json({ message: "Invalid OTP." });
   } catch (error) {
+    console.error("OTP verification error:", error);
     res.status(500).json({ message: "Verification failed." });
   }
 };
 
+export const resendOTP = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+    
+    if (user.isVerified) {
+      return res.status(400).json({ message: "Email is already verified." });
+    }
+    
+    // Generate new OTP
+    const otpCode = user.generateOTP();
+    await user.save();
+    
+    // Send new OTP email
+    await sendOTPEmail(email, otpCode);
+    
+    return res.status(200).json({ message: "New OTP sent successfully." });
+  } catch (error) {
+    console.error("Resend OTP error:", error);
+    res.status(500).json({ message: "Failed to resend OTP." });
+  }
+};
 
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find the user by email
-    const user = await User.findOne({ email });
+    // Find the user by email and explicitly select the password field
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -115,25 +161,48 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Optionally, ensure the user's email is verified
+    // Check if user is verified
     if (!user.isVerified) {
-      return res.status(403).json({ message: "Email is not verified" });
+      return res.status(403).json({ 
+        message: "Email is not verified",
+        needsVerification: true,
+        email: user.email
+      });
     }
 
     // Create the payload for the token
-    const payload = { userId: user._id, email: user.email };
+    const payload = { _id: user._id, email: user.email };
 
     // Generate the JWT token
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 
-    res.status(200).json({ token, message: "Login successful" });
+    // Return user data (excluding sensitive information) along with the token
+    const userData = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      skills: user.skills,
+      isVerified: user.isVerified
+    };
+
+    res.status(200).json({ 
+      success: true,
+      message: "Login successful",
+      token,
+      user: userData
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Login failed" });
+    res.status(500).json({ 
+      success: false,
+      message: "Login failed",
+      error: error.message 
+    });
   }
 };
+
 export const logout = async (req, res) => {
   try {
     return res.status(200).cookie("token", "", { maxAge: 0 }).json({
@@ -155,8 +224,8 @@ export const logout = async (req, res) => {
 
 export const getUserProfile = async (req, res) => {
   try {
-    // req.user contains payload from the token (e.g., userId and email)
-    const user = await User.findById(req.user.userId).select("-password -otp");
+    // req.user is now the complete user object from the middleware
+    const user = await User.findById(req.user._id).select("-password -otp");
     if (!user) {
       return res.status(404).json({ message: "User not found." });
     }
@@ -169,14 +238,16 @@ export const getUserProfile = async (req, res) => {
 
 export const updateUserProfile = async (req, res) => {
   try {
-    // We'll allow updates to name and skills for example.
+    // We'll allow updates to name, skills, bio, location, and portfolio
     const updates = {
       name: req.body.name,
       skills: req.body.skills,
-      // add any additional fields that you allow updates for
+      bio: req.body.bio,
+      location: req.body.location,
+      portfolio: req.body.portfolio,
     };
 
-    const user = await User.findByIdAndUpdate(req.user.userId, updates, {
+    const user = await User.findByIdAndUpdate(req.user._id, updates, {
       new: true,
     }).select("-password -otp");
 

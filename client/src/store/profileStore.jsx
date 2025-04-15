@@ -7,51 +7,59 @@ export const useProfileStore = create((set) => ({
 
   fetchUserProfile: async () => {
     try {
-      const token = localStorage.getItem("token"); // ✅ Get token from storage
+      const token = localStorage.getItem("token");
       if (!token) {
-        console.warn("No token found in local storage.");
-        return;
+        throw new Error("No authentication token found");
       }
 
-      const res = await Axios.get(
-        `${import.meta.env.VITE_BASE_API_URL}/auth/profile`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // ✅ Send token in Authorization header
-          },
-        }
-      );
+      const response = await Axios.get("/auth/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      set({ userProfile: res.data.user });
+      console.log("Profile response:", response.data); // Debug log
+
+      if (response.data && response.data.user) {
+        set({ userProfile: response.data.user });
+        return response.data.user;
+      } else {
+        throw new Error("Invalid profile data received");
+      }
     } catch (error) {
       console.error("Error fetching profile:", error);
-      toast.error(error.response?.data?.message || "Failed to load profile.");
+      if (error.response?.status === 401) {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+      }
+      throw error;
     }
   },
 
   updateUserProfile: async (data) => {
     try {
-      const token = localStorage.getItem("token"); // ✅ Get token from storage
+      const token = localStorage.getItem("token");
       if (!token) {
-        console.warn("No token found in local storage.");
-        return;
+        throw new Error("No authentication token found");
       }
 
-      const res = await Axios.put(
-        `${import.meta.env.VITE_BASE_API_URL}/auth/profile`,
-        data,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // ✅ Send token
-          },
-        }
-      );
+      const response = await Axios.put("/auth/profile", data, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      set({ userProfile: res.data.user });
-      toast.success("Profile updated successfully!");
+      if (response.data && response.data.user) {
+        set({ userProfile: response.data.user });
+        toast.success("Profile updated successfully!");
+        return response.data.user;
+      } else {
+        throw new Error("Invalid profile data received");
+      }
     } catch (error) {
       console.error("Update error:", error);
-      toast.error(error.response?.data?.message || "Failed to update profile.");
+      toast.error(error.response?.data?.message || "Failed to update profile");
+      throw error;
     }
   },
 }));
