@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useServiceRequestStore } from "../store/useServiceRequestStore";
 import { useAuthStore } from "../store/useAuthStore";
 import Chat from "./Chat";
+import { toast } from "react-hot-toast";
 
 const ServiceRequest = () => {
   const { 
@@ -67,9 +68,16 @@ const ServiceRequest = () => {
     }
   };
 
-  const handleNegotiate = (request) => {
-    setSelectedRequest(request);
-    setShowChat(true);
+  const handleNegotiate = async (request) => {
+    try {
+      // First update the service request status to allow chat access
+      await updateServiceRequestStatus(request._id, "In Progress");
+      setSelectedRequest(request);
+      setShowChat(true);
+    } catch (error) {
+      console.error("Error starting negotiation:", error);
+      toast.error("Failed to start negotiation. Please try again.");
+    }
   };
 
   const handleCloseChat = () => {

@@ -50,14 +50,12 @@ export const registerUser = async (req, res) => {
       const result = await cloudinary.uploader.upload(file.tempFilePath);
       portfolioUrls.push(result.secure_url);
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
     
     // Create new user with pending status
     const newUser = new User({
       name,
       email,
-      password: hashedPassword,
+      password, // The model's pre-save hook will hash this password
       skills: Array.isArray(skills) ? skills : [skills],
       portfolio: portfolioUrls,
       registrationStatus: 'pending',
@@ -148,21 +146,28 @@ export const resendOTP = async (req, res) => {
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log(`Login attempt for email: ${email}`);
 
     // Find the user by email and explicitly select the password field
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
+      console.log(`User not found for email: ${email}`);
       return res.status(401).json({ message: "Invalid credentials" });
     }
+    console.log(`User found: ${user.name}, isVerified: ${user.isVerified}`);
 
-    // Compare the provided password with the hashed password
-    const isMatch = await bcrypt.compare(password, user.password);
+    // Use the model's comparePassword method
+    const isMatch = await user.comparePassword(password);
+    console.log(`Password match: ${isMatch}`);
+    
     if (!isMatch) {
+      console.log(`Password mismatch for user: ${user.name}`);
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     // Check if user is verified
     if (!user.isVerified) {
+      console.log(`User not verified: ${user.name}`);
       return res.status(403).json({ 
         message: "Email is not verified",
         needsVerification: true,
@@ -187,6 +192,7 @@ export const loginUser = async (req, res) => {
       isVerified: user.isVerified
     };
 
+    console.log(`Login successful for user: ${user.name}`);
     res.status(200).json({ 
       success: true,
       message: "Login successful",
@@ -194,7 +200,7 @@ export const loginUser = async (req, res) => {
       user: userData
     });
   } catch (error) {
-    console.error(error);
+    console.error("Login error:", error);
     res.status(500).json({ 
       success: false,
       message: "Login failed",

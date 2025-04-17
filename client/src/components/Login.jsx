@@ -6,19 +6,33 @@ const Login = () => {
   const { login } = useAuthStore(); // useAuthStore() hook se login function ko access kar rahe hain
   const navigate = useNavigate(); // navigate function ko initialize kar rahe hain navigation ke liye
   const [formData, setFormData] = useState({ email: "", password: "" }); // formData state bana rahe hain user ke email aur password ke liye
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     // Jab bhi user input field me value type karega, state update hogi
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    // Clear error when user types
+    if (error) setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault(); // Form submit hone par page reload hone se rok raha hai
-    const success = await login(formData, navigate); // login function call kar rahe hain backend authentication ke liye
-
-    if (success) {
-      // Agar login successful ho jata hai to home page ya dashboard par redirect karenge
-      navigate("/");
+    setIsLoading(true);
+    setError("");
+    
+    try {
+      console.log("Attempting login with:", formData.email);
+      const success = await login(formData, navigate); // login function call kar rahe hain backend authentication ke liye
+      
+      if (!success) {
+        setError("Login failed. Please check your credentials and try again.");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -28,6 +42,13 @@ const Login = () => {
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
         {/* Login form ka card-like UI */}
         <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-900 text-white rounded-lg">
+            {error}
+          </div>
+        )}
+        
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           {/* Form ke andar email aur password ke input fields hain */}
           <input
@@ -38,6 +59,7 @@ const Login = () => {
             value={formData.email}
             onChange={handleChange}
             className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+            disabled={isLoading}
           />
           <input
             type="password"
@@ -47,12 +69,14 @@ const Login = () => {
             value={formData.password}
             onChange={handleChange}
             className="p-3 rounded-lg bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+            disabled={isLoading}
           />
           <button
             type="submit"
-            className="mt-4 bg-green-500 text-gray-900 font-semibold py-3 rounded-lg hover:bg-green-400 transition"
+            className="mt-4 bg-green-500 text-gray-900 font-semibold py-3 rounded-lg hover:bg-green-400 transition disabled:opacity-50"
+            disabled={isLoading}
           >
-            Login
+            {isLoading ? "Logging in..." : "Login"}
           </button>
         </form>
         <p className="mt-6 text-center text-gray-400">

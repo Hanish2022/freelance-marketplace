@@ -80,7 +80,8 @@ export const getUserSkillExchanges = async (req, res) => {
       $or: [{ user1: req.user._id }, { user2: req.user._id }],
     })
       .populate("user1", "name email")
-      .populate("user2", "name email");
+      .populate("user2", "name email")
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,

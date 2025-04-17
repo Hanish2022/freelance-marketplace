@@ -83,15 +83,21 @@ export const updateServiceRequestStatus = async (req, res) => {
       });
     }
 
-    // Only the creator or assigned user can update the status
-    if (
-      serviceRequest.user.toString() !== req.user._id.toString() &&
-      serviceRequest.assignedTo?.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to update this service request",
-      });
+    // Allow negotiation if the request is open
+    if (serviceRequest.status === "Open") {
+      serviceRequest.assignedTo = req.user._id;
+      serviceRequest.status = "In Progress";
+    } else {
+      // For other status updates, check authorization
+      if (
+        serviceRequest.user.toString() !== req.user._id.toString() &&
+        serviceRequest.assignedTo?.toString() !== req.user._id.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized to update this service request",
+        });
+      }
     }
 
     serviceRequest.status = status || serviceRequest.status;

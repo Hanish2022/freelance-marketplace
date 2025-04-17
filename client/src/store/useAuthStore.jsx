@@ -163,50 +163,72 @@ export const useAuthStore = create((set) => ({
   // 🔹 Login function
   login: async (data, navigate) => {
     try {
+      // Clear any existing token before attempting a new login
+      localStorage.removeItem("token");
+      delete Axios.defaults.headers.common["Authorization"];
+      
       const res = await Axios.post(
-        `${import.meta.env.VITE_BASE_API_URL}/auth/login`, // Login API ka endpoint
-        data, // User ka login data (email & password)
-        { withCredentials: true } // Cookies aur credentials send kar raha hai
+        `${import.meta.env.VITE_BASE_API_URL}/auth/login`,
+        data,
+        { withCredentials: true }
       );
-      const { token, user } = res.data; // Response se token aur user data extract kiya
+      
+      console.log("Login response:", res.data);
+      
+      const { token, user } = res.data;
 
       if (token) {
-        localStorage.setItem("token", token); // ✅ Token ko localStorage me save kiya
+        // Store token in localStorage
+        localStorage.setItem("token", token);
+        
+        // Set the token in Axios headers for future requests
         Axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        
+        // Update the auth state
+        set({ 
+          authUser: user, 
+          isLoggedIn: true, 
+          needsVerification: false,
+          isCheckingAuth: false
+        });
+        
+        toast.success("Login successful!");
+        navigate("/");
+        return true;
+      } else {
+        toast.error("Login failed: No token received");
+        return false;
       }
-
-      // State update ki, user login ho gaya
-      set({ authUser: user, isLoggedIn: true, needsVerification: false });
-
-      toast.success("Login successful!"); // Success message show kiya
-      navigate("/"); // User ko home page pe redirect kiya
-
-      return true; // ✅ Login successful
     } catch (error) {
-      console.error("Login Error:", error.response?.data?.message); // Error console pe print kiya
+      console.error("Login Error:", error.response?.data?.message);
 
-      // Handle unverified email case
       if (error.response?.status === 403 && error.response?.data?.needsVerification) {
         set({ 
           emailForOTP: error.response.data.email, 
           isVerifyingOTP: true,
           needsVerification: true
         });
-        toast.error("Email not verified. Please verify your email.");
+        toast.error("Please verify your email before logging in. Check your inbox for the verification code.");
         return false;
+      } else if (error.response?.status === 401) {
+        toast.error("Invalid email or password. Please check your credentials and try again.");
+      } else if (error.response?.status === 500) {
+        toast.error("Server error. Please try again later.");
+      } else if (!error.response) {
+        toast.error("Network error. Please check your internet connection.");
+      } else {
+        toast.error(error.response?.data?.message || "An unexpected error occurred during login.");
       }
 
-      toast.error(error.response?.data?.message || "Invalid credentials"); // Error message show kiya
-
-      return false; // ❌ Login fail hua
+      return false;
     }
   },
 
   // 🔹 Logout function
   logout: () => {
-    localStorage.removeItem("token"); // ✅ Token ko remove kiya
+    localStorage.removeItem("token");
     delete Axios.defaults.headers.common["Authorization"];
-    set({ authUser: null, isLoggedIn: false, needsVerification: false }); // State reset ki (User logout ho gaya)
-    toast.success("Logged out successfully!"); // Success message dikhaya
+    set({ authUser: null, isLoggedIn: false, needsVerification: false });
+    toast.success("Logged out successfully!");
   },
 }));
